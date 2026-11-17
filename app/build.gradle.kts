@@ -17,16 +17,18 @@ android {
     targetSdk = 36
     versionCode = 2
     versionName = "2.0.0"
-    // OpenCV ships a native lib per ABI; one keeps the APK small. `-PallAbis` (the release workflow) builds an APK per
-    // ABI plus a universal one instead.
-    if (!project.hasProperty("allAbis")) ndk { abiFilters += "arm64-v8a" }
+    // OpenCV ships a native lib per ABI; limit to arm64-v8a and x86_64 for device + emulator compatibility. `-PallAbis`
+    // (the release workflow) builds an APK per ABI plus a universal one instead.
+    if (!project.hasProperty("allAbis")) ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
   signingConfigs {
-    // The Expo build's debug key, so a debug build replaces the installed app instead of failing on a signature mismatch.
-    getByName("debug") {
-      if (file("debug.keystore").exists()) storeFile = file("debug.keystore")
+    create("debugConfig") {
+      storeFile = file("${rootDir}/debug.keystore")
+      storePassword = "android"
+      keyAlias = "androiddebugkey"
+      keyPassword = "android"
     }
     // Your upload key, kept out of the repo in ~/.gradle/gradle.properties (same properties the Expo build read).
     val store = findProperty("PDF_TOOLS_UPLOAD_STORE_FILE") as String?
@@ -42,13 +44,14 @@ android {
     // `-PsideBySide` installs the debug build (and its on-device tests) next to the real app instead of over it, so a
     // test run never touches its files: ./gradlew :app:connectedDebugAndroidTest -PsideBySide
     debug {
+      signingConfig = signingConfigs.getByName("debugConfig")
       if (project.hasProperty("sideBySide")) applicationIdSuffix = ".test"
     }
     release {
       isMinifyEnabled = true
       isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+      signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debugConfig")
     }
   }
 
